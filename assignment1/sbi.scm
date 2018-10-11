@@ -59,19 +59,40 @@
 (define *label-table* (make-hash))
 (define *variable-table* (make-hash))
 
+(for-each
+    (lambda (pair)
+            (symbol-put! *function-table* (car pair) (cadr pair)))
+    `(
+
+        (log10_2 0.301029995663981195213738894724493026768189881)
+        (sqrt_2  1.414213562373095048801688724209698078569671875)
+        (e       2.718281828459045235360287471352662497757247093)
+        (pi      3.141592653589793238462643383279502884197169399)
+        (div     ,(lambda (x y) (floor (/ x y))))
+        (log10   ,(lambda (x) (/ (log x) (log 10.0))))
+        (mod     ,(lambda (x y) (- x (* (div x y) y))))
+        (quot    ,(lambda (x y) (truncate (/ x y))))
+        (rem     ,(lambda (x y) (- x (* (quot x y) y))))
+        (+       ,+)
+        (^       ,expt)
+        (ceil    ,ceiling)
+        (exp     ,exp)
+        (floor   ,floor)
+        (log     ,log)
+        (sqrt    ,sqrt)
+        (abs     ,abs)
+        (acos    ,acos)
+        (asin    ,atan)
+        
+     ))
+
 (define (insert-into-symbol-table program)
-    (map (lambda (line) (insert line)) program)
+    (map (lambda (line) (insert line program)) program)
 )
 
-(define (insert line)
-    ;; Store the line number
-    (symbol-put! *label-table* (car line) (cond ((null? (cdr line)) null)
-                                            ((not (null? (cdr line))) (insert (cdr line)) (cdr line))))
-)
-
-(define (insert-helper key)
-(cond ((null? (cdr line)) null)
-    ((not (null? (cdr line))) (printf "~s~n" (cadr line))))
+(define (insert line program)
+    (cond ((null? (cdr line)) null)
+        ((symbol? (cadr line)) (symbol-put! *label-table* (cadr line) (list-ref program (- (car line) 1)))))
 )
 
 (define (main arglist)
