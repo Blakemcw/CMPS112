@@ -83,16 +83,82 @@
         (abs     ,abs)
         (acos    ,acos)
         (asin    ,atan)
-        
      ))
 
 (define (insert-into-symbol-table program)
-    (map (lambda (line) (insert line program)) program)
+    (map (lambda (line) (insert line)) program)
 )
 
-(define (insert line program)
-    (cond ((null? (cdr line)) null)
-        ((symbol? (cadr line)) (symbol-put! *label-table* (cadr line) (list-ref program (- (car line) 1)))))
+(define (insert line)
+    (cond 
+        ((null? (cdr line)) null)
+        ((symbol? (cadr line))
+            (symbol-put! *label-table* (cadr line) line)
+        )
+    )
+)
+
+(define (interpret-program program)
+    (cond 
+        ((null? program) null)
+        ((not (statement? (car program))) (interpret-program (cdr program)))
+        
+        ;; if it is a statement it will be interpreted by another function in place of the printf statement below
+        ((statement? (car program)) 
+            (interpret-statement (car program)) 
+            (interpret-program (cdr program))
+        )
+    )
+)
+
+;; Recursively checks line until it finds a pair aka a statement. Working :)
+(define (statement? line)
+    (cond 
+        ((null? (cdr line)) #f)
+        ((pair? (cdr line)) #t)
+        ((not (pair? (cdr line))) (statement? (cdr line))))
+)
+
+(define (interpret-statement statement)
+        (cond 
+            ((= "dim"   (car statement))    (interpret-dim statement))
+            ((= "let"   (car statement))    (interpret-let statement))
+            ((= "goto"  (car statement))   (interpret-goto statement))
+            ((= "if"    (car statement))     (interpret-if statement))
+            ((= "print" (car statement))  (interpret-print statement))
+            ((= "input" (car statement))  (interpret-input statement))
+        )
+)
+;; ------------------------------
+;;     STATEMENT PROCEDURES
+;; ------------------------------
+
+(define (interpret-dim statement)
+
+)
+
+(define (interpret-let statement)
+
+)
+
+(define (interpret-goto statement)
+
+)
+
+(define (interpret-if statement)
+
+)
+
+(define (interpret-print statement)
+
+)
+
+(define (interpret-input statement)
+
+)
+
+(define (evaluate-expression expression)
+        
 )
 
 (define (main arglist)
@@ -100,9 +166,9 @@
         (usage-exit)
         (let* ((sbprogfile (car arglist))
                (program (readlist-from-inputfile sbprogfile)))
-              (insert-into-symbol-table program)))
-    (printf "~s~n" *label-table*)
-              )
+              (insert-into-symbol-table program)
+              (interpret-program program)))
+)
 
 (when (terminal-port? *stdin*)
       (main (vector->list (current-command-line-arguments))))
