@@ -61,7 +61,7 @@
 
 (for-each
     (lambda (pair)
-            (symbol-put! *function-table* (car pair) (cadr pair)))
+            (symbol-put! *variable-table* (car pair) (cadr pair)))
     `(
         (abs     ,abs)
         (acos    ,acos)
@@ -79,13 +79,19 @@
         (sqrt    ,sqrt)
         (tan     ,tan)
         (trunc   ,truncate)
-        (div     ,(lambda (x y) (floor (/ x y))))
+        (/     ,(lambda (x y) (floor (/ x y))))
         (mod     ,(lambda (x y) (- x (* (div x y) y))))
         (quot    ,(lambda (x y) (truncate (/ x y))))
         (rem     ,(lambda (x y) (- x (* (quot x y) y))))
         (+       ,(lambda (x y) (+ x y)))
         (-       ,(lambda (x y) (- x y)))
         (^       ,expt)
+        (<       ,<)
+        (>       ,>)
+        (=       ,=)
+        (*       ,*)
+        (<=      ,<=)
+        (>=      ,>=)
      )
 )
 
@@ -106,7 +112,6 @@
             (insert-into-symbol-table (cdr program))
         )
         ((not (symbol? (car program)))
-            (printf "~s" (label? (car program)))
             (insert-into-symbol-table (cdr program))
         )
     )
@@ -123,18 +128,15 @@
 )
 
 (define (interpret-program program)
-    (printf "~n~s~n" program)
     (cond 
         ((null? program) null)
         ((not (statement? (car program))) (interpret-program (cdr program)))
-        ((statement? (car program))  
-
+        ((statement? (car program))
             (let 
                 ([statement-return-value (interpret-statement(extract-statement (car program)))])
-                    ;;(printf "~n--------------~s~n" (null? (cdr program)))
                     (if (null? statement-return-value)
                         (interpret-program (cdr program))
-                        (interpret-program (cdr (symbol-get *label-table* statement-return-value)))
+                        (interpret-program (symbol-get *label-table* statement-return-value))
                     )
             )
         )
@@ -145,8 +147,8 @@
 ;; Recursively checks line until it finds a pair aka a statement. Working :)
 (define (statement? line)
     (cond
-        ((null? (cdr line)) #f)
-        ((pair? (cdr line)) #t)
+        ((null?      (cdr line))  #f)
+        ((pair?      (cdr line))  #t)
         ((not (pair? (cdr line))) (statement? (cdr line)))
     )
 )
@@ -174,10 +176,19 @@
 ;; ------------------------------
 
 (define (interpret-dim statement)
+        (symbol-put! *variable-table* (caadr statement) (make-vector (+ (evaluate-expression (cadadr statement)) 1) 0))
         null
 )
 
 (define (interpret-let statement)
+        (cond
+            ((pair? (cadr statement))
+                (vector-set! (symbol-get *variable-table* (caadr statement)) (evaluate-expression (cadadr statement)) (evaluate-expression (caddr statement)))
+            )
+            ((not (pair? (cadr statement)))
+                (symbol-put! *variable-table* (cadr statement) (evaluate-expression (caddr statement)))
+            )
+        )
         null
 )
 
@@ -186,30 +197,65 @@
 )
 
 (define (interpret-if statement)
+        ;; The format of the statement follows,
+        ;; (if (operator expression1 expression2) labelToJumpTo)
 
-        ;; REPLACE WITH A LET STATEMENT THAT CHECKS CONDITIONS OF EXPRESSIONS!!!
         (if
-            (((caadr statement) (evaluate-expression (cadadr statement)) (evaluate-expression (cadr (cdadr statement)))))
+            (let ([expression1       (cadadr statement)]
+                  [expression2 (cadr (cdadr statement))])
+                (cond
+                    ((and (pair? expression1) (pair? expression2)) 
+                        ((evaluate-expression (caadr statement)) (evaluate-expression (access-array-at expression1)) ((evaluate-expression (access-array-at expression2))) )
+                    )
+                    ((pair? expression1) 
+                        ((evaluate-expression (caadr statement)) (evaluate-expression (access-array-at expression1)) (evaluate-expression expression2))
+                    )
+                    ((pair? expression2) 
+                        ((evaluate-expression (caadr statement)) (evaluate-expression expression1) (evaluate-expression (access-array-at expression2)))
+                    )
+                    (else 
+                        ((evaluate-expression (caadr statement)) (evaluate-expression expression1) (evaluate-expression expression2))
+                    )
+                )
+            )
             (caddr statement)
             null
         )
 )
 
+(define (access-array-at array-index-pair)
+        ;; array-index-pair is a pair? of the form (array index)
+        (vector-ref (symbol-get *variable-table* (car array-index-pair)) (evaluate-expression (cadr array-index-pair)))
+)
+
 (define (interpret-print statement)
         (map (lambda (list-of-printables) 
                 (let ([printable list-of-printables])
-                    (cond 
-                        ((string? printable) (printf "~s" (string-trim printable "\"")))
-                        ((expression printable) (print (expression printable)))
+                    (cond
+                        ((string? printable) (printf "~s~n" (string-trim printable "\"")))
+                        ((evaluate-expression printable) (printf "~s~n" (evaluate-expression printable)))
                     )
                 )
             )
-        (cdr statement))
+            (cdr statement)
+        )
     null
 )
 
 (define (interpret-input statement)
-        ;(map (cdr statement) (lambda (variable) (symbol-put! *variable-table* variable))
+    (map 
+        (lambda (variable)
+            (cond
+                ((pair? variable)
+                    (vector-set! (symbol-get *variable-table* (car variable)) (evaluate-expression (cadr variable)) (evaluate-expression (read)))
+                )
+                ((not (pair? variable))
+                    (symbol-put! *variable-table* variable (evaluate-expression (read)))
+                )
+            )
+            #f
+        ) (cdr statement)
+    )
     null
 )
 
